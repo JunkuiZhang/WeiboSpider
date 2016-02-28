@@ -37,7 +37,6 @@ class Weibo:
 			"Connection": "keep-alive"
 		}
 		response = requests.session()
-
 		res = response.get(self.prelogin_url, headers=post_header)
 		jstr = re.findall('({.*})', res.text)[0]
 		jstr = json.loads(jstr)
@@ -45,7 +44,7 @@ class Weibo:
 		nonce = jstr["nonce"]
 		pubkey = jstr["pubkey"]
 		rsakv = jstr["rsakv"]
-		return {"servertime": servertime, "nonce": nonce, "pubkey": pubkey, "rsakv": rsakv, "cookie": response}
+		return {"servertime": servertime, "nonce": nonce, "pubkey": pubkey, "rsakv": rsakv, "session": response}
 
 	def login(self):
 		keys = self.prelogin()
@@ -81,7 +80,7 @@ class Weibo:
 			"severtime": keys["servertime"],
 			"url": "http://weibo.com/ajaxlogin.php?framelogin=1&callback=parent.sinaSSOController.feedBackUrlCallBack"
 		}
-		response = keys["cookie"]
+		response = keys["session"]
 		res = response.post(self.login_url, data=post_data, headers=post_header)
 		url = re.findall("replace\\('(.*)'\\)", str(res.text))
 		if url != []:
@@ -100,7 +99,11 @@ class Weibo:
 			"Connection": "keep-alive"
 		}
 		response.get(url, headers=headers, allow_redirects=False)
-		target_url = "http://weibo.com/u/1826792401?topnav=1&wvr=6&topsug=1&is_all=1"
+		return response
+
+	def crawl(self, response):
+		# target_url = "http://weibo.com/sephirex?is_all=1"
+		target_url = "http://weibo.com/p/1003061826792401/follow?from=page_100306&wvr=6&mod=headfollow#place"
 		headers = {
 			"Host": "weibo.com",
 			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:44.0) Gecko/20100101 Firefox/44.0",
@@ -110,18 +113,13 @@ class Weibo:
 			"Referer": "http://weibo.com/",
 			"Connection": "keep-alive"
 		}
-		res2 = response.get(target_url, headers=headers)
-		print(res2.text)
-
-	def crawl(self, response):
-		target_url = "http://weibo.com/u/1826792401?topnav=1&wvr=6&topsug=1&is_all=1"
-		headers = {
-
-		}
-		res = response.get(target_url)
+		res = response.get(target_url, headers=headers)
+		# soup = bs4.BeautifulSoup(res.text, "html.parser")
 		print(res.text)
+
 
 u = "15203476529"
 p = "zjk1995"
 w = Weibo(u, p)
-w.login()
+res = w.login()
+w.crawl(res)
