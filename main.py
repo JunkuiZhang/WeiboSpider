@@ -4,6 +4,7 @@ import json
 import re
 import rsa
 import binascii
+import bs4
 
 class Weibo:
 
@@ -32,19 +33,19 @@ class Weibo:
 			"Accept": "*/*",
 			"Accept-Language": "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
 			"Accept-Encoding": "gzip, deflate",
-			# "Referer": "http://weibo.com/login.php",
 			"Referer": "http://weibo.com/",
 			"Connection": "keep-alive"
 		}
-		res = requests.get(self.prelogin_url, headers=post_header)
+		response = requests.session()
+
+		res = response.get(self.prelogin_url, headers=post_header)
 		jstr = re.findall('({.*})', res.text)[0]
 		jstr = json.loads(jstr)
 		servertime = jstr["servertime"]
 		nonce = jstr["nonce"]
 		pubkey = jstr["pubkey"]
 		rsakv = jstr["rsakv"]
-		cookie = res.cookies
-		return {"servertime": servertime, "nonce": nonce, "pubkey": pubkey, "rsakv": rsakv, "cookie": cookie}
+		return {"servertime": servertime, "nonce": nonce, "pubkey": pubkey, "rsakv": rsakv, "cookie": response}
 
 	def login(self):
 		keys = self.prelogin()
@@ -56,44 +57,61 @@ class Weibo:
 			"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 			"Accept-Language": "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
 			"Accept-Encoding": "gzip, deflate",
-			# "Referer": "http://weibo.com/login.php",
 			"Referer": "http://weibo.com/",
 			"Connection": "keep-alive"
 		}
 		post_data = {
-			"entry": "sso",
+			"entry": "weibo",
 			"gateway": "1",
 			"from": "",
 			"savestate": "7",
 			"useticket": "1",
-			# "pagerefer": "http://open.weibo.com/wiki/2/statuses/home_timeline",
-			"pagerefer": "http://passport.weibo.com/visitor/visitor?entry=miniblog&a=enter&url=http%3A%2F%2Fweibo.com%2F&domain=.weibo.com&sudaref=http%3A%2F%2Fwww.baidu.com%2Flink%3Furl%3DIHVQzIqJVbsXVUm6UA-UJZFKFcFUUzsVVpuQ_sfsvkC%26wd%3D%26eqid%3De3212695004a0b5a0000000556d27aa8&ua=php-sso_sdk_client-0.6.14&_rand=1456634538.5542",
+			"pagerefer": "http://login.sina.com.cn/sso/logout.php?entry=miniblog&r=http%3A%2F%2Fweibo.com%2Flogout.php%3Fbackurl%3D%252F",
 			"vsnf": "1",
 			"su": su,
 			"service": "miniblog",
 			"sp": sp,
 			"sr": "1920*1080",
 			"encoding": "UTF-8",
-			"prelt": "54",
+			"prelt": "65",
+			"pwencode": "rsa2",
 			"returntype": "META",
 			"rsakv": keys["rsakv"],
 			"nonce": keys["nonce"],
-			"severtime": keys["servertime"]
+			"severtime": keys["servertime"],
+			"url": "http://weibo.com/ajaxlogin.php?framelogin=1&callback=parent.sinaSSOController.feedBackUrlCallBack"
 		}
-		response = requests.session()
-		# response.cookies.update(keys["cookie"])
+		response = keys["cookie"]
 		res = response.post(self.login_url, data=post_data, headers=post_header)
-		jstr = res.content.decode("gbk")
-		if re.findall("正在登录...", jstr) != []:
-			print("Done.")
+		url = re.findall("replace\\('(.*)'\\)", str(res.text))
+		if url != []:
+			print("Done")
+			url = url[0]
 		else:
 			print("Failed to login.")
-		print(response.cookies.get_dict())
-		print(res.cookies)
-		print(res.headers)
-		res1 = response.get("http://weibo.com/u/3570580163/home?wvr=5&lf=reg", headers=post_header)
-		print(res1.text)
-		# return response
+
+		headers = {
+			"Host": "passport.weibo.com",
+			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:44.0) Gecko/20100101 Firefox/44.0",
+			"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			"Accept-Language": "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
+			"Accept-Encoding": "gzip, deflate",
+			"Referer": "http://login.sina.com.cn/sso/login.php?client=ssologin.js(v1.4.18)",
+			"Connection": "keep-alive"
+		}
+		response.get(url, headers=headers, allow_redirects=False)
+		target_url = "http://weibo.com/u/1826792401?topnav=1&wvr=6&topsug=1&is_all=1"
+		headers = {
+			"Host": "weibo.com",
+			"User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64; rv:44.0) Gecko/20100101 Firefox/44.0",
+			"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+			"Accept-Language": "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
+			"Accept-Encoding": "gzip, deflate",
+			"Referer": "http://weibo.com/",
+			"Connection": "keep-alive"
+		}
+		res2 = response.get(target_url, headers=headers)
+		print(res2.text)
 
 	def crawl(self, response):
 		target_url = "http://weibo.com/u/1826792401?topnav=1&wvr=6&topsug=1&is_all=1"
